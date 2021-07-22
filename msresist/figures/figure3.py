@@ -29,8 +29,7 @@ def makeFigure():
         X.iloc[i, 11:] -= X.iloc[i, 11]
 
     # Das DR time point
-    plot_DasDR_timepoint(ax[0])
-    ax[0].set_xlabel("[Dasatinib]")
+    plot_DasDR_timepoint(ax[0], "Dasatinib", "nM", time=96))
 
     # Luminex p-ASY Das DR
     plot_pAblSrcYap(ax[1:4])
@@ -70,7 +69,7 @@ def plot_YAPinhibitorTimeLapse(ax, X, ylim=False):
                 ax[j].legend(prop={'size': 10})
 
 
-def transform_YAPviability_data(data, itp=12):
+def transform_YAPviability_data(data, inhibitor, units, itp=24):
     """Transform to initial time point and convert into seaborn format"""
     new = []
     for i, mat in enumerate(data):
@@ -85,7 +84,7 @@ def transform_YAPviability_data(data, itp=12):
     c["Lines"] = [s.split(" ")[0] for s in c["Lines"]]
     c = c[["Elapsed", "Lines", "Condition", "Inh_concentration", "Fold-change confluency"]]
     c = c[c["Elapsed"] >= itp]
-    c["IC_n"] = [float(s.split("uM")[0]) for s in c["Inh_concentration"]]
+    c["IC_n"] = [float(s.split(units)[0]) for s in c["Inh_concentration"]]
     return c.sort_values(by="IC_n").drop("IC_n", axis=1)
 
 
@@ -127,18 +126,26 @@ def GenerateHyperGeomTestParameters(A, X, dasG, cluster):
     return (len(k), len(s), len(M), len(N))
 
 
-def plot_DasDR_timepoint(ax, inhibitor, time=96):
+def plot_DasDR_timepoint(ax, inhibitor, units, time=96):
     """Plot dasatinib DR at specified time point."""
-    if inhibitor == "dasatinib":
-        inh = [pd.read_csv("msresist/data/Validations/Experimental/DoseResponses/Dasatinib.csv"),
-               pd.read_csv("msresist/data/Validations/Experimental/DoseResponses/Dasatinib_2fixed.csv")]
+    if inhibitor == "Dasatinib":
+        br1 = pd.read_csv("msresist/data/Validations/CellGrowth/Dasatinib_Dose_BR3.csv")
+        br1.columns = [col.split(".1")[0].strip() for col in br1.columns]
+        inh = [br1.groupby(lambda x:x, axis=1).mean(), pd.read_csv("msresist/data/Validations/Experimental/DoseResponses/Dasatinib_2fixed.csv")]
+        units = "nM"
     elif inhibitor == "CX-4945":
         inh = pd.read_csv("CX_4945_BR1 _dose.csv")
         inh.columns = [col.split(".1")[0].strip() for col in inh.columns]
         inh = [inh.groupby(lambda x:x, axis=1).mean()]
-    data = transform_YAPviability_data(inh)
+        units = "uM"
+    elif inhibitor == "Volasertib":
+        inh = pd.read_csv("msresist/data/Validations/CellGrowth/Volasertib_Dose_BR1.csv")
+        inh.columns = [col.split(".1")[0].strip() for col in inh.columns]
+        inh = [inh.groupby(lambda x:x, axis=1).mean()]
+        units = "nM"
+    data = transform_YAPviability_data(inh, inhibitor, units)
     tp = data[data["Elapsed"] == time]
-    sns.lineplot(data=tp, x="Inh_concentration", y="Fold-change confluency", hue="Lines", style="Condition", ax=ax)
+    sns.lineplot(data=tp, x="Inh_concentration", y="Fold-change confluency", hue="Lines", style="Condition", ci=68, ax=ax)
     ax.set_xlabel("[" + inhibitor + "]")
 
 
